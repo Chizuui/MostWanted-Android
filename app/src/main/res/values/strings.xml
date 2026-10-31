@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Most Wanted</string>
     <string name="port_credit">Port by Rangga Casper</string>
     <string name="donate">Donate</string>
     <string name="donate_url" translatable="false">https://sociabuzz.com/racas/tribe</string>
@@ -28,13 +27,13 @@
 
     <!-- where the game goes -->
     <string name="storage_access">Storage access</string>
-    <string name="storage_text">Most Wanted reads the game from the MostWanted folder on your phone\'s storage:\n\n%1$s\n\n%2$s</string>
-    <string name="storage_all_files">On the next screen turn on \"Allow access to manage all files\" for Most Wanted, then come back.</string>
-    <string name="storage_permission">Allow Most Wanted to access your storage on the next screen.</string>
+    <string name="storage_text">%3$s reads the game from the %4$s folder on your phone\'s storage:\n\n%1$s\n\n%2$s</string>
+    <string name="storage_all_files">On the next screen turn on \"Allow access to manage all files\" for %1$s, then come back.</string>
+    <string name="storage_permission">Allow %1$s to access your storage on the next screen.</string>
     <string name="allow_access">Allow access</string>
     <string name="not_now">Not now</string>
     <string name="game_files">Game files</string>
-    <string name="game_files_text">Copy the game into the MostWanted folder on your phone\'s storage:\n\n%1$s\n\nor into a MostWanted folder at the top of your SD card.\n\nIts disc image (.iso), or default.xbe with its folders. The game starts as soon as they are there.\n\nOr import the disc image from your Downloads, a cloud drive or a USB stick.</string>
+    <string name="game_files_text">Copy the game into the %2$s folder on your phone\'s storage:\n\n%1$s\n\nor into a %2$s folder at the top of your SD card.\n\nIts disc image (.iso), or default.xbe with its folders. The game starts as soon as they are there.\n\nOr import the disc image from your Downloads, a cloud drive or a USB stick.</string>
 
     <!-- importing a disc image -->
     <string name="import_game">Import game</string>

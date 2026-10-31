@@ -561,8 +561,10 @@ std::atomic<int> g_pad_capture{-1};
 bool g_pad_capture_armed = false;
 std::chrono::steady_clock::time_point g_pad_capture_since;
 constexpr std::chrono::seconds kPadCaptureTimeout{5};
-// the panel shows the cheats alone; the settings are the game's own options menu (src/game/options_menu.cpp)
-constexpr int g_page = kCheatsPage;
+// in Most Wanted, settings were embedded in the in-game options menu;
+// in Carbon, all pages (GRAPHICS, TOUCH CONTROLS, GENERAL, KEYBOARD, CONTROLLER, CREDITS, CHEATS)
+// are fully accessible right here from the Gear panel via top tabs!
+int g_page = kSettingsPage;
 // the action's key and its alternate as their boxes show them, the alternate blank when there is none
 std::vector<std::string> KeyBoxes(size_t action) {
     std::string keys = input::Binding(action);
@@ -750,10 +752,17 @@ void Defaults() {
 }
 
 void DrawTitle() {
-    std::string title = Ui("CHEATS");
-    float title_pad = (ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(title.c_str()).x) * 0.5f;
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(title_pad, 0.0f));
-    ImGui::TextUnformatted(title.c_str());
+    // Tabs for all settings pages:
+    for (int p = 0; p < rows::PageCount(); p++) {
+        if (p > 0) ImGui::SameLine();
+        std::string name = Ui(kPages[p]);
+        bool active = (g_page == p);
+        if (active) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.3f, 1.0f));
+        if (ImGui::Button(name.c_str())) {
+            g_page = p;
+        }
+        if (active) ImGui::PopStyleColor();
+    }
 }
 
 constexpr const char* kCredit = "Port by Rangga Casper";

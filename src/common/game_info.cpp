@@ -75,16 +75,26 @@ const std::string& BootLanguage() {
 
 }  // namespace game
 
+// -DXBE_SHARED_DIR, XBE_GAME_LABEL, XBE_SETTINGS, XBE_LOG: set by app/build.gradle for the game this build is
+#ifndef XBE_SHARED_DIR
+#define XBE_SHARED_DIR "MostWanted"
+#define XBE_GAME_LABEL "Most Wanted"
+#define XBE_SETTINGS "mostwanted.toml"
+#define XBE_LOG "mostwanted"
+#endif
+#define WIDE_(s) L##s
+#define WIDE(s) WIDE_(s)
+
 const app::GameInfo app::kGame = {
-    .title = L"Need for Speed: Most Wanted",
-    .short_title = L"Most Wanted",
-    .name = L"MostWanted",
-    .log = "mostwanted",
-    .settings = "mostwanted.toml",
+    .title = L"Need for Speed: " WIDE(XBE_GAME_LABEL),
+    .short_title = WIDE(XBE_GAME_LABEL),
+    .name = WIDE(XBE_SHARED_DIR),
+    .log = XBE_LOG,
+    .settings = XBE_SETTINGS,
     .splash = nullptr,
-    .missing = L"Put the game in the MostWanted folder on the phone's storage: its disc image (.iso), or default.xbe "
+    .missing = L"Put the game in the " WIDE(XBE_SHARED_DIR) L" folder on the phone's storage: its disc image (.iso), or default.xbe "
                L"with the disc's NFS folder beside it.",
-    .images = {{"default.xbe", "MostWanted"}},
+    .images = {{"default.xbe", XBE_SHARED_DIR}},
     .options = {{"fps_counter", &game::Opt().fps_counter, nullptr},
                 {"bloom", &game::Opt().bloom, nullptr},
                 {"fog", &game::Opt().fog, nullptr},

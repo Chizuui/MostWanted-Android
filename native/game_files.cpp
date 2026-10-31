@@ -69,7 +69,7 @@ std::vector<fs::path> RemovableFolders() {
     for (auto& e : fs::directory_iterator(kVolumes, ec)) {
         std::string name = e.path().filename().string();
         if (name == "emulated" || name == "self" || !e.is_directory(dir_ec)) continue;
-        out.push_back(e.path() / "MostWanted");
+        out.push_back(e.path() / XBE_SHARED_DIR);
     }
     static bool logged = false;
     if (ec && !logged) {

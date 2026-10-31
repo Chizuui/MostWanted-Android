@@ -36,7 +36,7 @@ import org.libsdl.app.SDLControllerManager;
 // the app comes back without them; the game itself waits and starts as soon as it finds the files.
 // At launch it also asks GitHub for a newer release (UpdateChecker) and tells of it once nothing else is asked.
 public class MostWantedActivity extends SDLActivity {
-    static final String SHARED = "MostWanted";
+    static final String SHARED = BuildConfig.SHARED_DIR;
 
     private AlertDialog dialog;  // the one up, at most one at a time
     private boolean notNow;      // the player turned the access down this run
@@ -379,7 +379,8 @@ public class MostWantedActivity extends SDLActivity {
         dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.storage_access)
                 .setMessage(getString(R.string.storage_text, "/storage/emulated/0/" + SHARED,
-                        getString(ALL_FILES_ACCESS ? R.string.storage_all_files : R.string.storage_permission)))
+                        getString(ALL_FILES_ACCESS ? R.string.storage_all_files : R.string.storage_permission, getString(R.string.app_name)),
+                        getString(R.string.app_name), SHARED))
                 .setCancelable(false)
                 .setPositiveButton(R.string.allow_access, (d, w) -> openAccessSettings())
                 .setNegativeButton(R.string.not_now, (d, w) -> notNow = true)
@@ -391,7 +392,7 @@ public class MostWantedActivity extends SDLActivity {
     private void tellWhereTheGameGoes() {
         dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.game_files)
-                .setMessage(getString(R.string.game_files_text, "/storage/emulated/0/" + SHARED))
+                .setMessage(getString(R.string.game_files_text, "/storage/emulated/0/" + SHARED, SHARED))
                 .setPositiveButton(android.R.string.ok, null)
                 .setNeutralButton(R.string.import_game, (d, w) -> startImport())
                 .setOnDismissListener(d -> tellOfUpdate())

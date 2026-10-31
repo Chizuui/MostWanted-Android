@@ -21,7 +21,7 @@ import org.json.JSONObject;
 // given whatever it is.
 final class UpdateChecker {
     // owner/name of the GitHub repository that publishes this port's releases; empty asks nothing
-    static final String REPO = "RanggaCasper/MostWanted-Android";
+    static final String REPO = BuildConfig.UPDATE_REPO;
     private static final String LATEST = "https://api.github.com/repos/" + REPO + "/releases/latest";
     private static final String TAG = "MostWantedUpdate";
     private static final int TIMEOUT_MS = 8000;

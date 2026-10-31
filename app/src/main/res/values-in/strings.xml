@@ -23,13 +23,13 @@
 
     <!-- where the game goes -->
     <string name="storage_access">Akses penyimpanan</string>
-    <string name="storage_text">Most Wanted membaca game dari folder MostWanted di penyimpanan HP kamu:\n\n%1$s\n\n%2$s</string>
-    <string name="storage_all_files">Di layar berikutnya, aktifkan \"Izinkan akses untuk mengelola semua file\" untuk Most Wanted, lalu kembali ke sini.</string>
-    <string name="storage_permission">Di layar berikutnya, izinkan Most Wanted mengakses penyimpanan kamu.</string>
+    <string name="storage_text">%3$s membaca game dari folder %4$s di penyimpanan HP kamu:\n\n%1$s\n\n%2$s</string>
+    <string name="storage_all_files">Di layar berikutnya, aktifkan \"Izinkan akses untuk mengelola semua file\" untuk %1$s, lalu kembali ke sini.</string>
+    <string name="storage_permission">Di layar berikutnya, izinkan %1$s mengakses penyimpanan kamu.</string>
     <string name="allow_access">Izinkan akses</string>
     <string name="not_now">Nanti saja</string>
     <string name="game_files">File game</string>
-    <string name="game_files_text">Salin game ke folder MostWanted di penyimpanan HP kamu:\n\n%1$s\n\natau ke folder MostWanted di bagian paling atas kartu SD.\n\nBisa disc image-nya (.iso), atau default.xbe beserta folder-foldernya. Game langsung dimulai begitu file-nya ada di sana.\n\nAtau impor disc image dari folder Download, cloud drive, atau flashdisk USB.</string>
+    <string name="game_files_text">Salin game ke folder %2$s di penyimpanan HP kamu:\n\n%1$s\n\natau ke folder %2$s di bagian paling atas kartu SD.\n\nBisa disc image-nya (.iso), atau default.xbe beserta folder-foldernya. Game langsung dimulai begitu file-nya ada di sana.\n\nAtau impor disc image dari folder Download, cloud drive, atau flashdisk USB.</string>
 
     <!-- importing a disc image -->
     <string name="import_game">Impor game</string>

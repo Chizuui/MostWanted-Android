@@ -11,8 +11,12 @@ struct Pad;
 
 namespace host {
 
-// the shared storage's folder for the game, readable and writable with all files access (game_files.cpp)
-inline constexpr const char* kShared = "/storage/emulated/0/MostWanted";
+// the shared storage's folder for the game, readable and writable with all files access (game_files.cpp); the name is
+// the game's, set by app/build.gradle
+#ifndef XBE_SHARED_DIR
+#define XBE_SHARED_DIR "MostWanted"
+#endif
+inline constexpr const char* kShared = "/storage/emulated/0/" XBE_SHARED_DIR;
 
 SDL_Window* Window();
 // the app is in front with a window to draw to; the renderer and the game wait while it is not

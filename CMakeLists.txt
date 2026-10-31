@@ -27,12 +27,14 @@ endif()
 # the recompiled code and the xbe it came from
 set(XBE_GENERATED ${REPO}/generated/game CACHE PATH "the recompiled code of default.xbe")
 set(XBE_IMAGE ${REPO}/assets/default.xbe CACHE FILEPATH "the xbe it was recompiled from")
+set(XBE_CONFIG ${REPO}/config/game.toml CACHE FILEPATH "the recompiler input used to make XBE_GENERATED")
+set(XBE_CONFIG ${XBE_CONFIG} CACHE PATH "" FORCE)
 set(GEN ${XBE_GENERATED})
 set(XBE ${XBE_IMAGE})
 if(NOT EXISTS ${GEN}/x86_func_mapping.cpp OR NOT EXISTS ${XBE})
     message(FATAL_ERROR "No recompiled code: put the game in assets/ or iso/ and run build.bat, it writes generated/game")
 endif()
-file(STRINGS ${REPO}/config/game.toml GAME_PARTITIONS REGEX "^partitions *=")
+file(STRINGS ${XBE_CONFIG} GAME_PARTITIONS REGEX "^partitions *=")
 string(REGEX MATCH "[0-9]+" GAME_PARTITIONS "${GAME_PARTITIONS}")
 math(EXPR last "${GAME_PARTITIONS} - 1")
 set(GEN_SOURCES ${GEN}/x86_func_mapping.cpp)
@@ -82,8 +84,9 @@ FetchContent_MakeAvailable(glslang tomlplusplus imgui)
 file(GLOB RUNTIME_SOURCES ${SDK}/runtime/*/*.cpp)
 list(FILTER RUNTIME_SOURCES EXCLUDE REGEX
      "/runtime/app/|/core/input\\.cpp$|/gpu/(d3d12|render_thread)\\.cpp$|/audio/xaudio2\\.cpp$|/xdk/(dsound|d3d8)\\.cpp$")
-# the game's sources: its hooks, sound, Direct3D 8 and settings
-file(GLOB GAME_HOST_SOURCES CONFIGURE_DEPENDS ${GAME}/*/*.cpp)
+# the game's sources: Direct3D 8, sound and settings, plus the per-game hooks in src/<XBE_GAME_DIR> (game: Most Wanted)
+set(XBE_GAME_DIR game CACHE STRING "the per-game hook directory under src")
+file(GLOB GAME_HOST_SOURCES CONFIGURE_DEPENDS ${GAME}/d3d/*.cpp ${GAME}/sound/*.cpp ${GAME}/common/*.cpp ${GAME}/${XBE_GAME_DIR}/*.cpp)
 file(GLOB ANDROID_SOURCES CONFIGURE_DEPENDS ${NATIVE}/*.cpp)
 set(IMGUI_SOURCES ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
@@ -107,6 +110,11 @@ target_link_libraries(main PRIVATE SDL3::SDL3 tomlplusplus::tomlplusplus glslang
 option(XBE_VERBOSE_LOG "log info lines in a release build" OFF)
 if(XBE_VERBOSE_LOG)
     target_compile_definitions(main PRIVATE XBE_VERBOSE_LOG)
+endif()
+# the game's folder, name, settings file and log prefix (app/build.gradle's -Pgame); without them Most Wanted's
+if(XBE_SHARED_DIR)
+    target_compile_definitions(main PRIVATE XBE_SHARED_DIR="${XBE_SHARED_DIR}" XBE_GAME_LABEL="${XBE_GAME_LABEL}"
+                               XBE_SETTINGS="${XBE_SETTINGS}" XBE_LOG="${XBE_LOG}")
 endif()
 # 16 KB pages, as Android 15 devices may have
 target_link_options(main PRIVATE -Wl,-z,max-page-size=16384)

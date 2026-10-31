@@ -16,13 +16,29 @@ tasks.register("fetchSDL") {
 }
 preBuild.dependsOn "fetchSDL"
 
+// -Pgame=carbon: its own folder, name, settings and log beside Most Wanted's; the shared one is the default
+def gameName = project.hasProperty("game") ? project.game : "mostwanted"
+def games = [
+    mostwanted: [dir: "MostWanted", label: "Most Wanted", settings: "mostwanted.toml", log: "mostwanted", repo: "RanggaCasper/MostWanted-Android"],
+    carbon    : [dir: "Carbon",     label: "NFS Carbon",  settings: "carbon.toml",     log: "carbon",     repo: ""],
+]
+def game = games[gameName]
+
 android {
     namespace "com.racas.mostwanted"
     compileSdk 34
     ndkVersion "28.2.13676358"
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
-        applicationId "com.racas.mostwanted"
+        // -PappId=<id>: another game's build installs beside this one
+        applicationId project.hasProperty("appId") ? project.appId : "com.racas.mostwanted"
+        buildConfigField "String", "SHARED_DIR", "\"${game.dir}\""
+        buildConfigField "String", "UPDATE_REPO", "\"${game.repo}\""
+        resValue "string", "app_name", game.label
         minSdk 29
         targetSdk 34
         // -PversionCode=<n> -PversionName=<name>: the release workflow sets them from the tag
@@ -35,8 +51,11 @@ android {
             cmake {
                 arguments "-DANDROID_STL=c++_shared"
                 // -PxbeGenerated=<dir> -PxbeImage=<file>: recompiled code from somewhere else than generated/game
-                if (project.hasProperty("xbeGenerated")) arguments "-DXBE_GENERATED=${project.xbeGenerated}"
-                if (project.hasProperty("xbeImage")) arguments "-DXBE_IMAGE=${project.xbeImage}"
+                if (project.hasProperty("xbeGenerated")) arguments "-DXBE_GENERATED=${project.file("../" + project.xbeGenerated).absolutePath}"
+                if (project.hasProperty("xbeImage")) arguments "-DXBE_IMAGE=${project.file("../" + project.xbeImage).absolutePath}"
+                if (project.hasProperty("xbeConfig")) arguments "-DXBE_CONFIG=${project.file("../" + project.xbeConfig).absolutePath}"
+                if (project.hasProperty("xbeGameDir")) arguments "-DXBE_GAME_DIR=${project.xbeGameDir}"
+                arguments "-DXBE_SHARED_DIR=${game.dir}", "-DXBE_GAME_LABEL=${game.label}", "-DXBE_SETTINGS=${game.settings}", "-DXBE_LOG=${game.log}"
                 if (project.hasProperty("verboseLog")) arguments "-DXBE_VERBOSE_LOG=ON"
             }
         }
