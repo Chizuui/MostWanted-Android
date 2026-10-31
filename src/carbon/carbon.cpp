@@ -82,23 +82,18 @@ constexpr uint32_t kGameFlowState = 0x46D280;
 constexpr uint32_t kGameFlowRacing = 6;
 constexpr uint32_t kCFEng = 0x46A7C8;
 
-std::atomic<bool> g_is_paused{false};
-
+// Returns true if name is any menu/dialog/options package (anything that is NOT racing HUD or song banner)
 bool IsMenuPackageName(const char* name) {
     if (!name || *name == '\0') return false;
     if (std::strstr(name, "HUD_") != nullptr) return false;
     if (std::strstr(name, "EA_TRAX") != nullptr || std::strstr(name, "EA_Trax") != nullptr) return false;
-    return (std::strstr(name, "Pause") != nullptr || std::strstr(name, "pause") != nullptr ||
-            std::strstr(name, "Option") != nullptr || std::strstr(name, "option") != nullptr ||
-            std::strstr(name, "Config") != nullptr || std::strstr(name, "config") != nullptr ||
-            std::strstr(name, "Audio") != nullptr || std::strstr(name, "audio") != nullptr ||
-            std::strstr(name, "Scroller") != nullptr || std::strstr(name, "scroller") != nullptr ||
-            std::strstr(name, "Menu") != nullptr || std::strstr(name, "menu") != nullptr);
+    return true;
 }
 
+// Directly check if ANY non-HUD package is currently active in FEngine.
+// When in race and paused or in ANY menu (Pause, Options, Audio, Gameplay, Controller, Video, Dialog):
+// this returns true, hiding the racing pad buttons immediately!
 bool IsPaused() {
-    if (!g_is_paused.load()) return false;
-    // Verify whether any pause or options package is actually alive in FEngine
     if (!mem::IsCommitted(kCFEng)) return false;
     uint32_t cfeng = kernel::R32(kCFEng);
     uint32_t fe = (cfeng && mem::IsCommitted(cfeng)) ? kernel::R32(cfeng) : 0;
@@ -114,8 +109,6 @@ bool IsPaused() {
             }
         }
     }
-    // No pause or options package is alive anymore
-    g_is_paused.store(false);
     return false;
 }
 
@@ -340,25 +333,14 @@ X86_FUNC(sub_0007DD50) {
     __imp__sub_0007DD50(ctx, base);
 }
 // FEng SwitchPackage hook in Carbon: sub_0012FCD0
-// [esp + 4] is const char* name of package being switched to.
 X86_EXTERN_FUNC(__imp__sub_0012FCD0);
 X86_FUNC(sub_0012FCD0) {
-    uint32_t name_ptr = kernel::R32(ctx.esp + 4);
-    if (name_ptr && mem::IsCommitted(name_ptr)) {
-        const char* name = (const char*)kernel::HostPtr(name_ptr);
-        if (game::IsMenuPackageName(name)) {
-            game::g_is_paused.store(true);
-        } else if (name && (std::strstr(name, "HUD_") != nullptr || *name == '\0')) {
-            game::g_is_paused.store(false);
-        }
-    }
     __imp__sub_0012FCD0(ctx, base);
 }
+
 // Unpause in Carbon: sub_0012DFE0
-// Sets [esi + 4] = 0 and resumes the gameplay.
 X86_EXTERN_FUNC(__imp__sub_0012DFE0);
 X86_FUNC(sub_0012DFE0) {
-    game::g_is_paused.store(false);
     __imp__sub_0012DFE0(ctx, base);
 }
 
