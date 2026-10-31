@@ -84,9 +84,21 @@ constexpr uint32_t kCFEng = 0x46A7C8;
 
 std::atomic<bool> g_is_paused{false};
 
+bool IsMenuPackageName(const char* name) {
+    if (!name || *name == '\0') return false;
+    if (std::strstr(name, "HUD_") != nullptr) return false;
+    if (std::strstr(name, "EA_TRAX") != nullptr || std::strstr(name, "EA_Trax") != nullptr) return false;
+    return (std::strstr(name, "Pause") != nullptr || std::strstr(name, "pause") != nullptr ||
+            std::strstr(name, "Option") != nullptr || std::strstr(name, "option") != nullptr ||
+            std::strstr(name, "Config") != nullptr || std::strstr(name, "config") != nullptr ||
+            std::strstr(name, "Audio") != nullptr || std::strstr(name, "audio") != nullptr ||
+            std::strstr(name, "Scroller") != nullptr || std::strstr(name, "scroller") != nullptr ||
+            std::strstr(name, "Menu") != nullptr || std::strstr(name, "menu") != nullptr);
+}
+
 bool IsPaused() {
     if (!g_is_paused.load()) return false;
-    // Verify whether any pause package is actually alive in FEngine
+    // Verify whether any pause or options package is actually alive in FEngine
     if (!mem::IsCommitted(kCFEng)) return false;
     uint32_t cfeng = kernel::R32(kCFEng);
     uint32_t fe = (cfeng && mem::IsCommitted(cfeng)) ? kernel::R32(cfeng) : 0;
@@ -97,12 +109,12 @@ bool IsPaused() {
         uint32_t name_ptr = kernel::R32(p + 0xC);
         if (name_ptr && mem::IsCommitted(name_ptr)) {
             const char* name = (const char*)kernel::HostPtr(name_ptr);
-            if (name && (std::strstr(name, "Pause") != nullptr || std::strstr(name, "pause") != nullptr)) {
+            if (IsMenuPackageName(name)) {
                 return true;
             }
         }
     }
-    // Pause package is no longer in the active package list
+    // No pause or options package is alive anymore
     g_is_paused.store(false);
     return false;
 }
@@ -334,9 +346,9 @@ X86_FUNC(sub_0012FCD0) {
     uint32_t name_ptr = kernel::R32(ctx.esp + 4);
     if (name_ptr && mem::IsCommitted(name_ptr)) {
         const char* name = (const char*)kernel::HostPtr(name_ptr);
-        if (name && (std::strstr(name, "Pause") != nullptr || std::strstr(name, "pause") != nullptr)) {
+        if (game::IsMenuPackageName(name)) {
             game::g_is_paused.store(true);
-        } else if (name && (std::strstr(name, "HUD_") != nullptr || std::strstr(name, "WorldMap") != nullptr || *name == '\0')) {
+        } else if (name && (std::strstr(name, "HUD_") != nullptr || *name == '\0')) {
             game::g_is_paused.store(false);
         }
     }
