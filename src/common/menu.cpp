@@ -813,7 +813,10 @@ void DrawPanel() {
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     float em = ImGui::GetFontSize();
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(em * 40, em * 16), ImGuiCond_Always);
+    // Make the settings panel larger to comfortably fit more options and make scrolling spacious
+    float panel_w = std::min(vp->Size.x * 0.90f, em * 48.0f);
+    float panel_h = std::min(vp->Size.y * 0.90f, em * 23.0f);
+    ImGui::SetNextWindowSize(ImVec2(panel_w, panel_h), ImGuiCond_Always);
     for (const auto& [col, color] : kPanelColors) ImGui::PushStyleColor(col, color);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);

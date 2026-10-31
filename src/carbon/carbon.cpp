@@ -124,10 +124,16 @@ struct Prompt {
     const char* text;
 };
 const Prompt kPrompts[] = {
-    {0x9B580A55, "Tap anywhere"},          // Press START
-    {0xDC64C04C, "Tap anywhere"},          // Press START button
-    {0xD18D4C4C, "Tap anywhere to begin"}, // Press START to begin
-    {0x9D8F2513, "Tap or press"},          // Press
+    // Carbon-specific title screen hashes (extracted from ZZDATA Global strings chunk):
+    {0x8CD6BD6D, "Tap anywhere to begin"}, // Press START
+    {0x8CD63CB8, "Tap anywhere to begin"}, // Press START button
+    {0x0BE9C967, "Tap anywhere to begin"}, // Press START to begin
+    {0x1BAD0AEA, "Tap anywhere to begin"}, // Press START
+    // Fallback Most Wanted hashes:
+    {0x9B580A55, "Tap anywhere to begin"},
+    {0xDC64C04C, "Tap anywhere to begin"},
+    {0xD18D4C4C, "Tap anywhere to begin"},
+    {0x9D8F2513, "Tap or press"},
 };
 
 uint32_t GuestText(const char* text) {
