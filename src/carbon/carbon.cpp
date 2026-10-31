@@ -72,6 +72,9 @@ constexpr uint32_t kInfiniteNos = 0x497D5C;
 void ApplyCheats() {
     const Options& o = Opt();
     if (mem::IsCommitted(kInfiniteNos)) kernel::G<uint8_t>(kInfiniteNos) = o.cheat_nos ? 1 : 0;
+    static int n = 0;
+    if (++n % 120 == 0)
+        __android_log_print(ANDROID_LOG_INFO, "cbn", "cheats nos=%d cop=%d cash=%d committed=%d byte=%d racing=%d", o.cheat_nos, o.cheat_no_police, o.cheat_cash, (int)mem::IsCommitted(kInfiniteNos), mem::IsCommitted(kInfiniteNos) ? kernel::G<uint8_t>(kInfiniteNos) : -1, (int)Racing());
     if (mem::IsCommitted(kCopManager)) {
         uint32_t mgr = kernel::R32(kCopManager);
         if (mgr && mem::IsCommitted(mgr + 0x60)) {
@@ -81,6 +84,7 @@ void ApplyCheats() {
 }
 
 void CaptureFont() {}
+
 bool TakeFont(FontImage&) { return false; }
 
 // In Carbon: 0x46D280 is GameFlowState.
@@ -370,4 +374,23 @@ X86_FUNC(sub_0012FCD0) {
 X86_EXTERN_FUNC(__imp__sub_0012DFE0);
 X86_FUNC(sub_0012DFE0) {
     __imp__sub_0012DFE0(ctx, base);
+}
+
+// Nitrous update in Carbon: sub_0023F150 (thiscall, ret 8); diagnostics
+X86_EXTERN_FUNC(__imp__sub_0023F150);
+X86_FUNC(sub_0023F150) {
+    static int n = 0;
+    uint32_t self = ctx.ecx;
+    if (++n % 30 == 0 && mem::IsCommitted(self + 0x80)) {
+        uint32_t amt = kernel::R32(self + 0x7c);
+        float f;
+        std::memcpy(&f, &amt, 4);
+        __android_log_print(ANDROID_LOG_INFO, "cbn", "nosupd this=%08X engaged=%d amt=%f flag=%d", self,
+                            kernel::G<uint8_t>(self + 0x78), f, kernel::G<uint8_t>(0x497D5C));
+    }
+    // nitrous is 0..1 ([self + 0x7C]); cheat on keeps it full across the update, which also stops it on 0
+    const bool full = game::Opt().cheat_nos && mem::IsCommitted(self + 0x80);
+    if (full) kernel::W32(self + 0x7C, 0x3F800000u);
+    __imp__sub_0023F150(ctx, base);
+    if (full) kernel::W32(self + 0x7C, 0x3F800000u);
 }
