@@ -65,8 +65,13 @@ void ApplyGraphicsSwitches() {
 // 0x46D944 holds AICopManager / ICopMgr singleton pointer
 constexpr uint32_t kCopManager = 0x46D944;
 
+// the debug byte the nitrous update (0x23F150) reads and never writes: set, the drain is skipped.
+// Not the cheat table's check (0x863A0, id 0xB) the update also asks: that is the game's own cheat codes
+constexpr uint32_t kInfiniteNos = 0x497D5C;
+
 void ApplyCheats() {
     const Options& o = Opt();
+    if (mem::IsCommitted(kInfiniteNos)) kernel::G<uint8_t>(kInfiniteNos) = o.cheat_nos ? 1 : 0;
     if (mem::IsCommitted(kCopManager)) {
         uint32_t mgr = kernel::R32(kCopManager);
         if (mgr && mem::IsCommitted(mgr + 0x60)) {
@@ -365,16 +370,4 @@ X86_FUNC(sub_0012FCD0) {
 X86_EXTERN_FUNC(__imp__sub_0012DFE0);
 X86_FUNC(sub_0012DFE0) {
     __imp__sub_0012DFE0(ctx, base);
-}
-
-// Reward / Unlock check in Carbon: sub_000863A0
-// When cheat_unlock_all is on, always returns true (al = 1)!
-X86_EXTERN_FUNC(__imp__sub_000863A0);
-X86_FUNC(sub_000863A0) {
-    if (game::Opt().cheat_unlock_all) {
-        ctx.eax = (ctx.eax & 0xFFFFFF00u) | 1u;
-        ctx.esp += 8;
-        return;
-    }
-    __imp__sub_000863A0(ctx, base);
 }
