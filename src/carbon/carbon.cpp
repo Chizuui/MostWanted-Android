@@ -65,6 +65,7 @@ void ApplyGraphicsSwitches() {
 // 0x46D944 holds AICopManager / ICopMgr singleton pointer
 constexpr uint32_t kCopManager = 0x46D944;
 constexpr uint32_t kNoNewCops = 0x5C;
+constexpr uint32_t kUnlockAll = 0x46D784;
 constexpr uint32_t kCareerRoot = 0x46A7CC, kCashField = 0x24310;
 
 // Carbon's speedbreaker meter (update 0x23F150, amount [this + 0x7C], 0..1) skips its drain when this debug
@@ -91,6 +92,21 @@ void ApplyCheats() {
         } else if (cash_held) {
             kernel::W32(career + kCashField, cash_saved);
             cash_held = false;
+        }
+    }
+    // the byte 28 unlock tests or in (0x2C6A60 answers true at once, the thing lists' lock tests 0x8A500, ...);
+    // the game sets it itself only for one cheat entry (0x8FBB9) and from its boot (0x1EDA24), so it is held
+    // while on and given back as it was when turned off
+    static bool unlock_held = false;
+    static uint8_t unlock_saved = 0;
+    if (mem::IsCommitted(kUnlockAll)) {
+        if (o.cheat_unlock_all) {
+            if (!unlock_held) unlock_saved = kernel::G<uint8_t>(kUnlockAll);
+            unlock_held = true;
+            kernel::G<uint8_t>(kUnlockAll) = 1;
+        } else if (unlock_held) {
+            kernel::G<uint8_t>(kUnlockAll) = unlock_saved;
+            unlock_held = false;
         }
     }
     // the cop manager's "no new cops or pursuits" byte, the one its vtable's +0x34 sets and +0x38 clears and
