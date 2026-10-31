@@ -1,5 +1,6 @@
 // Need for Speed: Carbon boots on the host's XDK like Most Wanted does, but every hook in src/game is cut for Most Wanted's
 // addresses. Until Carbon's are found these are the calls the common code makes, doing nothing
+#include <android/log.h>
 #include <cstring>
 #include <string>
 
@@ -277,6 +278,16 @@ uint32_t ConsoleLanguage() { return 1; }
 X86_EXTERN_FUNC(__imp__sub_0011F9A0);
 X86_FUNC(sub_0011F9A0) {
     uint32_t hash = ctx.edx;
+    // the title screen's string is edited in place: a string of ours handed back crashed the title screen
+    if (hash == 0x186AAECC) {
+        __imp__sub_0011F9A0(ctx, base);
+        if (ctx.eax && mem::IsCommitted(ctx.eax)) {
+            char* s = (char*)kernel::HostPtr(ctx.eax);
+            static const char kText[] = "TAP to begin"; // only letters the original has: the title font's glyph set is cut down
+            if (std::strlen(s) >= sizeof(kText) - 1) std::memcpy(s, kText, sizeof(kText));
+        }
+        return;
+    }
     if (const char* text = game::OwnString(hash)) {
         if (uint32_t va = game::GuestText(text)) {
             ctx.eax = va;
@@ -299,21 +310,6 @@ X86_FUNC(sub_0011FAB0) {
         }
     }
     __imp__sub_0011FAB0(ctx, base);
-}
-
-// 3. sub_0011FA60 (SearchForString with hash in edx or [esp+4])
-X86_EXTERN_FUNC(__imp__sub_0011FA60);
-X86_FUNC(sub_0011FA60) {
-    uint32_t hash = kernel::R32(ctx.esp + 4);
-    if (!hash) hash = ctx.edx;
-    if (const char* text = game::OwnString(hash)) {
-        if (uint32_t va = game::GuestText(text)) {
-            ctx.eax = va;
-            ctx.esp += 4;
-            return;
-        }
-    }
-    __imp__sub_0011FA60(ctx, base);
 }
 
 // Coronas / Headlight Flares in Carbon:
