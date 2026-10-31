@@ -64,6 +64,8 @@ void ApplyGraphicsSwitches() {
 // Carbon cheats:
 // 0x46D944 holds AICopManager / ICopMgr singleton pointer
 constexpr uint32_t kCopManager = 0x46D944;
+constexpr uint32_t kNoNewCops = 0x5C;
+constexpr uint32_t kCareerRoot = 0x46A7CC, kCashField = 0x24310;
 
 // Carbon's speedbreaker meter (update 0x23F150, amount [this + 0x7C], 0..1) skips its drain when this debug
 // byte, which the game never writes, is set. Not the cheat table's check (0x863A0, id 0xB) it also asks:
@@ -74,11 +76,32 @@ void ApplyCheats() {
     const Options& o = Opt();
     if (mem::IsCommitted(kInfiniteSpeedbreaker))
         kernel::G<uint8_t>(kInfiniteSpeedbreaker) = o.cheat_speedbreaker ? 1 : 0;
-    if (mem::IsCommitted(kCopManager)) {
-        uint32_t mgr = kernel::R32(kCopManager);
-        if (mgr && mem::IsCommitted(mgr + 0x60)) {
-            kernel::G<uint8_t>(mgr + 0x60) = o.cheat_no_police ? 1 : 0;
+    // the career's cash, [[[0x46A7CC] + 0xD4]] + 0x24310 (what the cash setter 0x9D3F0 adds to; the shop and the
+    // HUD read it): held at the cheat's amount while on, and given back as it was when turned off
+    static bool cash_held = false;
+    static uint32_t cash_saved = 0;
+    uint32_t sys = mem::IsCommitted(kCareerRoot) ? kernel::R32(kCareerRoot) : 0;
+    uint32_t list = sys && mem::IsCommitted(sys + 0xD4) ? kernel::R32(sys + 0xD4) : 0;
+    uint32_t career = list && mem::IsCommitted(list) ? kernel::R32(list) : 0;
+    if (career && mem::IsCommitted(career + kCashField)) {
+        if (o.cheat_cash) {
+            if (!cash_held) cash_saved = kernel::R32(career + kCashField);
+            cash_held = true;
+            kernel::W32(career + kCashField, 9999999);
+        } else if (cash_held) {
+            kernel::W32(career + kCashField, cash_saved);
+            cash_held = false;
         }
+    }
+    // the cop manager's "no new cops or pursuits" byte, the one its vtable's +0x34 sets and +0x38 clears and
+    // its spawn check (0x1B810) reads. Written only while on and once more when turned off, so the game's own
+    // use of it is left alone
+    static bool held = false;
+    uint32_t mgr = mem::IsCommitted(kCopManager) ? kernel::R32(kCopManager) : 0;
+    if (mgr && mem::IsCommitted(mgr + kNoNewCops)) {
+        if (o.cheat_no_police) kernel::G<uint8_t>(mgr + kNoNewCops) = 1;
+        else if (held) kernel::G<uint8_t>(mgr + kNoNewCops) = 0;
+        held = o.cheat_no_police;
     }
 }
 
@@ -348,19 +371,6 @@ X86_FUNC(sub_0010C5F0) {
     if (game::Opt().motion_blur) return __imp__sub_0010C5F0(ctx, base);
     ctx.eax &= ~0xFFu; // return false
     ctx.esp += 4;
-}
-
-// GetAttribute in Profile Manager: sub_0007DD00
-// When cheat_cash is enabled, reading Cash (0x1778) returns 9,999,999!
-X86_EXTERN_FUNC(__imp__sub_0007DD00);
-X86_FUNC(sub_0007DD00) {
-    uint32_t attr = kernel::R32(ctx.esp + 4);
-    uint32_t out_ptr = kernel::R32(ctx.esp + 8);
-    __imp__sub_0007DD00(ctx, base);
-    if (game::Opt().cheat_cash && attr == 0x1778 && out_ptr && mem::IsCommitted(out_ptr)) {
-        kernel::W32(out_ptr, 9999999);
-        ctx.eax = 1;
-    }
 }
 
 // FEng SwitchPackage hook in Carbon: sub_0012FCD0
