@@ -66,12 +66,10 @@ constexpr uint32_t kCopManager = 0x46D944;
 
 void ApplyCheats() {
     const Options& o = Opt();
-    if (o.cheat_no_police) {
-        if (mem::IsCommitted(kCopManager)) {
-            uint32_t mgr = kernel::R32(kCopManager);
-            if (mgr && mem::IsCommitted(mgr + 0x60)) {
-                kernel::G<uint8_t>(mgr + 0x60) = 1;
-            }
+    if (mem::IsCommitted(kCopManager)) {
+        uint32_t mgr = kernel::R32(kCopManager);
+        if (mgr && mem::IsCommitted(mgr + 0x60)) {
+            kernel::G<uint8_t>(mgr + 0x60) = o.cheat_no_police ? 1 : 0;
         }
     }
 }
@@ -274,7 +272,8 @@ uint32_t ConsoleLanguage() { return 1; }
 
 }  // namespace app
 
-// SearchForString override in Carbon: replace button prompts
+// SearchForString overrides in Carbon:
+// 1. sub_0011F9A0 (low-level binary search, hash in edx)
 X86_EXTERN_FUNC(__imp__sub_0011F9A0);
 X86_FUNC(sub_0011F9A0) {
     uint32_t hash = ctx.edx;
@@ -286,6 +285,35 @@ X86_FUNC(sub_0011F9A0) {
         }
     }
     __imp__sub_0011F9A0(ctx, base);
+}
+
+// 2. sub_0011FAB0 (high-level SearchForString, hash on stack [esp+4])
+X86_EXTERN_FUNC(__imp__sub_0011FAB0);
+X86_FUNC(sub_0011FAB0) {
+    uint32_t hash = kernel::R32(ctx.esp + 4);
+    if (const char* text = game::OwnString(hash)) {
+        if (uint32_t va = game::GuestText(text)) {
+            ctx.eax = va;
+            ctx.esp += 4;
+            return;
+        }
+    }
+    __imp__sub_0011FAB0(ctx, base);
+}
+
+// 3. sub_0011FA60 (SearchForString with hash in edx or [esp+4])
+X86_EXTERN_FUNC(__imp__sub_0011FA60);
+X86_FUNC(sub_0011FA60) {
+    uint32_t hash = kernel::R32(ctx.esp + 4);
+    if (!hash) hash = ctx.edx;
+    if (const char* text = game::OwnString(hash)) {
+        if (uint32_t va = game::GuestText(text)) {
+            ctx.eax = va;
+            ctx.esp += 4;
+            return;
+        }
+    }
+    __imp__sub_0011FA60(ctx, base);
 }
 
 // Coronas / Headlight Flares in Carbon:
