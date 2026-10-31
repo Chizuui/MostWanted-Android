@@ -24,8 +24,11 @@ namespace game {
 constexpr uint32_t kVideoFlags = 0x45D294, kWideWidth = 0x3F98E0;
 
 void WidenAspect() {
-    // Keep Carbon's default HUD/minimap transform intact (853.0f)
-    // Overwriting 0x3F98E0 caused the GPS minimap roads to shift away from its circular rim!
+    if (!mem::IsCommitted(kVideoFlags) || !(kernel::G<uint8_t>(kVideoFlags) & 1)) return;
+    float w = 480.0f * Aspect();
+    uint32_t bits;
+    std::memcpy(&bits, &w, 4);
+    kernel::W32(kWideWidth, bits);
 }
 
 // Carbon render switches:
