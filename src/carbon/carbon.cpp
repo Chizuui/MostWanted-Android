@@ -355,16 +355,6 @@ X86_FUNC(sub_0007DD00) {
     }
 }
 
-// SetAttribute in Profile Manager: sub_0007DD50
-// When saving career with cheat_cash enabled, keep Cash at 9,999,999!
-X86_EXTERN_FUNC(__imp__sub_0007DD50);
-X86_FUNC(sub_0007DD50) {
-    uint32_t attr = kernel::R32(ctx.esp + 4);
-    if (game::Opt().cheat_cash && attr == 0x1778) {
-        kernel::W32(ctx.esp + 8, 9999999);
-    }
-    __imp__sub_0007DD50(ctx, base);
-}
 // FEng SwitchPackage hook in Carbon: sub_0012FCD0
 X86_EXTERN_FUNC(__imp__sub_0012FCD0);
 X86_FUNC(sub_0012FCD0) {
