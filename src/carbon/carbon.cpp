@@ -29,34 +29,48 @@ void WidenAspect() {
 }
 
 // Carbon render switches:
-// 0x401D14: World Bloom switch (checked at 0x112AF9, calls 0x110F50 / 0x110E00)
-// 0x3F96B3: Particles - Main View switch (checked at 0x112A63)
+// - 0x401D14: World Bloom switch (checked at 0x112AF9, calls 0x110F50 / 0x110E00)
+// - 0x3F96B3: Particles - Main View switch (checked at 0x112A63)
+// - 0x3F96BA: Car Reflections (EnvMap) switch (checked at 0x1121BB)
+// - 0x492F8C: Road Reflection active flag (checked at 0x111FF0)
 constexpr uint32_t kWorldBloomSwitch = 0x401D14;
 constexpr uint32_t kParticleSwitch = 0x3F96B3;
+constexpr uint32_t kEnvMapSwitch = 0x3F96BA;
+constexpr uint32_t kRoadReflectionSwitch = 0x492F8C;
 
 void ApplyGraphicsSwitches() {
     const Options& o = Opt();
-    // When bloom is disabled, turn off Carbon's World Bloom pass to eliminate the blinding overbright flare
     if (mem::IsCommitted(kWorldBloomSwitch)) {
         kernel::G<uint8_t>(kWorldBloomSwitch) = o.bloom ? 1 : 0;
     }
     if (mem::IsCommitted(kParticleSwitch)) {
         kernel::G<uint8_t>(kParticleSwitch) = o.particles ? 1 : 0;
     }
+    if (mem::IsCommitted(kEnvMapSwitch)) {
+        static uint32_t frame = 0;
+        uint32_t rate = o.reflections;
+        uint32_t every = rate < 3 ? 1u << rate : 512;
+        kernel::G<uint8_t>(kEnvMapSwitch) = (frame++ % every == 0) ? 1 : 0;
+    }
+    if (mem::IsCommitted(kRoadReflectionSwitch)) {
+        kernel::G<uint8_t>(kRoadReflectionSwitch) = o.road_reflections ? 1 : 0;
+    }
 }
 
 // Carbon cheats:
 // 0x46D944 holds AICopManager / ICopMgr singleton pointer
-// 0x456830 holds the Profile Manager (SetAttribute at 0x7DD50, attr 0x1778 is Cash)
 constexpr uint32_t kCopManager = 0x46D944;
-constexpr uint32_t kProfileManager = 0x456830;
-constexpr uint32_t kSetProfileAttribute = 0x7DD50;
-constexpr uint32_t kAttrCash = 0x1778;
-constexpr uint32_t kCheatCash = 9999999;
 
 void ApplyCheats() {
-    // Cheats in Carbon will be written directly as memory bytes (as in Most Wanted),
-    // never by calling guest functions from present (which corrupts the guest stack and causes SIGSEGV).
+    const Options& o = Opt();
+    if (o.cheat_no_police) {
+        if (mem::IsCommitted(kCopManager)) {
+            uint32_t mgr = kernel::R32(kCopManager);
+            if (mgr && mem::IsCommitted(mgr + 0x60)) {
+                kernel::G<uint8_t>(mgr + 0x60) = 1;
+            }
+        }
+    }
 }
 
 void CaptureFont() {}
@@ -66,11 +80,14 @@ bool TakeFont(FontImage&) { return false; }
 // State 6 is racing/driving. Any other state is menu/loading/FMV.
 constexpr uint32_t kGameFlowState = 0x46D280;
 constexpr uint32_t kGameFlowRacing = 6;
+std::atomic<bool> g_is_paused{false};
 
+bool IsPaused() {
+    return g_is_paused.load();
+}
 bool Racing() {
     return mem::IsCommitted(kGameFlowState) && kernel::R32(kGameFlowState) == kGameFlowRacing;
 }
-
 // Custom strings for button prompts
 struct Prompt {
     uint32_t hash;
@@ -165,10 +182,10 @@ void FeFrame() {
     }
 }
 
-// FeMenuShown: true whenever we are not in a race, so the pad buttons hide
+// FeMenuShown: true whenever we are not in a race OR when paused, so the pad buttons hide
 // and give way to menu navigation (pills in the corner, swipe, tap anywhere)
 bool FeMenuShown() {
-    return !Racing();
+    return !Racing() || IsPaused();
 }
 
 bool FeMouseDown() { return g_down.load(); }
@@ -247,4 +264,77 @@ X86_FUNC(sub_00108690) {
 X86_EXTERN_FUNC(__imp__sub_0010EC90);
 X86_FUNC(sub_0010EC90) {
     ctx.esp += 4;
+}
+// Falling Rain in Carbon: sub_00278460 (thiscall, 2 args, ret 8)
+X86_EXTERN_FUNC(__imp__sub_00278460);
+X86_FUNC(sub_00278460) {
+    if (game::Opt().rain) return __imp__sub_00278460(ctx, base);
+    ctx.esp += 12; // 4 bytes return address + 8 bytes arguments
+}
+
+// Motion Blur in Carbon: sub_0010C5F0 (cdecl, 4 args, pops 4 bytes return address)
+// Returns bool in al whether motion blur was drawn.
+X86_EXTERN_FUNC(__imp__sub_0010C5F0);
+X86_FUNC(sub_0010C5F0) {
+    if (game::Opt().motion_blur) return __imp__sub_0010C5F0(ctx, base);
+    ctx.eax &= ~0xFFu; // return false
+    ctx.esp += 4;
+}
+
+// GetAttribute in Profile Manager: sub_0007DD00
+// When cheat_cash is enabled, reading Cash (0x1778) returns 9,999,999!
+X86_EXTERN_FUNC(__imp__sub_0007DD00);
+X86_FUNC(sub_0007DD00) {
+    uint32_t attr = kernel::R32(ctx.esp + 4);
+    uint32_t out_ptr = kernel::R32(ctx.esp + 8);
+    __imp__sub_0007DD00(ctx, base);
+    if (game::Opt().cheat_cash && attr == 0x1778 && out_ptr && mem::IsCommitted(out_ptr)) {
+        kernel::W32(out_ptr, 9999999);
+        ctx.eax = 1;
+    }
+}
+
+// SetAttribute in Profile Manager: sub_0007DD50
+// When saving career with cheat_cash enabled, keep Cash at 9,999,999!
+X86_EXTERN_FUNC(__imp__sub_0007DD50);
+X86_FUNC(sub_0007DD50) {
+    uint32_t attr = kernel::R32(ctx.esp + 4);
+    if (game::Opt().cheat_cash && attr == 0x1778) {
+        kernel::W32(ctx.esp + 8, 9999999);
+    }
+    __imp__sub_0007DD50(ctx, base);
+}
+// FEng SwitchPackage hook in Carbon: sub_0012FCD0
+// [esp + 4] is const char* name of package being switched to.
+X86_EXTERN_FUNC(__imp__sub_0012FCD0);
+X86_FUNC(sub_0012FCD0) {
+    uint32_t name_ptr = kernel::R32(ctx.esp + 4);
+    if (name_ptr && mem::IsCommitted(name_ptr)) {
+        const char* name = (const char*)kernel::HostPtr(name_ptr);
+        if (name && (std::strstr(name, "Pause") != nullptr || std::strstr(name, "pause") != nullptr)) {
+            game::g_is_paused.store(true);
+        } else if (name && (std::strstr(name, "HUD_") != nullptr || std::strstr(name, "WorldMap") != nullptr || *name == '\0')) {
+            game::g_is_paused.store(false);
+        }
+    }
+    __imp__sub_0012FCD0(ctx, base);
+}
+// Unpause in Carbon: sub_0012DFE0
+// Sets [esi + 4] = 0 and resumes the gameplay.
+X86_EXTERN_FUNC(__imp__sub_0012DFE0);
+X86_FUNC(sub_0012DFE0) {
+    game::g_is_paused.store(false);
+    __imp__sub_0012DFE0(ctx, base);
+}
+
+// Reward / Unlock check in Carbon: sub_000863A0
+// When cheat_unlock_all is on, always returns true (al = 1)!
+X86_EXTERN_FUNC(__imp__sub_000863A0);
+X86_FUNC(sub_000863A0) {
+    if (game::Opt().cheat_unlock_all) {
+        ctx.eax = (ctx.eax & 0xFFFFFF00u) | 1u;
+        ctx.esp += 8;
+        return;
+    }
+    __imp__sub_000863A0(ctx, base);
 }
