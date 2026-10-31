@@ -65,16 +65,15 @@ void ApplyGraphicsSwitches() {
 // 0x46D944 holds AICopManager / ICopMgr singleton pointer
 constexpr uint32_t kCopManager = 0x46D944;
 
-// the debug byte the nitrous update (0x23F150) reads and never writes: set, the drain is skipped.
-// Not the cheat table's check (0x863A0, id 0xB) the update also asks: that is the game's own cheat codes
-constexpr uint32_t kInfiniteNos = 0x497D5C;
+// Carbon's speedbreaker meter (update 0x23F150, amount [this + 0x7C], 0..1) skips its drain when this debug
+// byte, which the game never writes, is set. Not the cheat table's check (0x863A0, id 0xB) it also asks:
+// that is the game's own cheat codes
+constexpr uint32_t kInfiniteSpeedbreaker = 0x497D5C;
 
 void ApplyCheats() {
     const Options& o = Opt();
-    if (mem::IsCommitted(kInfiniteNos)) kernel::G<uint8_t>(kInfiniteNos) = o.cheat_nos ? 1 : 0;
-    static int n = 0;
-    if (++n % 120 == 0)
-        __android_log_print(ANDROID_LOG_INFO, "cbn", "cheats nos=%d cop=%d cash=%d committed=%d byte=%d racing=%d", o.cheat_nos, o.cheat_no_police, o.cheat_cash, (int)mem::IsCommitted(kInfiniteNos), mem::IsCommitted(kInfiniteNos) ? kernel::G<uint8_t>(kInfiniteNos) : -1, (int)Racing());
+    if (mem::IsCommitted(kInfiniteSpeedbreaker))
+        kernel::G<uint8_t>(kInfiniteSpeedbreaker) = o.cheat_speedbreaker ? 1 : 0;
     if (mem::IsCommitted(kCopManager)) {
         uint32_t mgr = kernel::R32(kCopManager);
         if (mgr && mem::IsCommitted(mgr + 0x60)) {
@@ -376,21 +375,24 @@ X86_FUNC(sub_0012DFE0) {
     __imp__sub_0012DFE0(ctx, base);
 }
 
-// Nitrous update in Carbon: sub_0023F150 (thiscall, ret 8); diagnostics
+// Speedbreaker update in Carbon: sub_0023F150 (thiscall, ret 8). Cheat on keeps the meter full across the
+// update, which also ends the break on 0
 X86_EXTERN_FUNC(__imp__sub_0023F150);
 X86_FUNC(sub_0023F150) {
-    static int n = 0;
-    uint32_t self = ctx.ecx;
-    if (++n % 30 == 0 && mem::IsCommitted(self + 0x80)) {
-        uint32_t amt = kernel::R32(self + 0x7c);
-        float f;
-        std::memcpy(&f, &amt, 4);
-        __android_log_print(ANDROID_LOG_INFO, "cbn", "nosupd this=%08X engaged=%d amt=%f flag=%d", self,
-                            kernel::G<uint8_t>(self + 0x78), f, kernel::G<uint8_t>(0x497D5C));
-    }
-    // nitrous is 0..1 ([self + 0x7C]); cheat on keeps it full across the update, which also stops it on 0
-    const bool full = game::Opt().cheat_nos && mem::IsCommitted(self + 0x80);
+    const uint32_t self = ctx.ecx;
+    const bool full = game::Opt().cheat_speedbreaker && mem::IsCommitted(self + 0x80);
     if (full) kernel::W32(self + 0x7C, 0x3F800000u);
     __imp__sub_0023F150(ctx, base);
     if (full) kernel::W32(self + 0x7C, 0x3F800000u);
+}
+
+// Nitrous update in Carbon: sub_00207BD0 (thiscall, ret 0xC). The tank is [this + 0xFC], 0..1, drained
+// there by the frame's time and floored at 0; cheat on keeps it full across the update
+X86_EXTERN_FUNC(__imp__sub_00207BD0);
+X86_FUNC(sub_00207BD0) {
+    const uint32_t self = ctx.ecx;
+    const bool full = game::Opt().cheat_nos && mem::IsCommitted(self + 0x100);
+    if (full) kernel::W32(self + 0xFC, 0x3F800000u);
+    __imp__sub_00207BD0(ctx, base);
+    if (full) kernel::W32(self + 0xFC, 0x3F800000u);
 }
