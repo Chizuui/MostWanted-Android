@@ -80,11 +80,33 @@ bool TakeFont(FontImage&) { return false; }
 // State 6 is racing/driving. Any other state is menu/loading/FMV.
 constexpr uint32_t kGameFlowState = 0x46D280;
 constexpr uint32_t kGameFlowRacing = 6;
+constexpr uint32_t kCFEng = 0x46A7C8;
+
 std::atomic<bool> g_is_paused{false};
 
 bool IsPaused() {
-    return g_is_paused.load();
+    if (!g_is_paused.load()) return false;
+    // Verify whether any pause package is actually alive in FEngine
+    if (!mem::IsCommitted(kCFEng)) return false;
+    uint32_t cfeng = kernel::R32(kCFEng);
+    uint32_t fe = (cfeng && mem::IsCommitted(cfeng)) ? kernel::R32(cfeng) : 0;
+    if (!fe || !mem::IsCommitted(fe + 0xE4)) return false;
+    int count = 0;
+    for (uint32_t p = kernel::R32(fe + 0xE4); p && count < 32; p = kernel::R32(p + 8), count++) {
+        if (!mem::IsCommitted(p + 0xC)) continue;
+        uint32_t name_ptr = kernel::R32(p + 0xC);
+        if (name_ptr && mem::IsCommitted(name_ptr)) {
+            const char* name = (const char*)kernel::HostPtr(name_ptr);
+            if (name && (std::strstr(name, "Pause") != nullptr || std::strstr(name, "pause") != nullptr)) {
+                return true;
+            }
+        }
+    }
+    // Pause package is no longer in the active package list
+    g_is_paused.store(false);
+    return false;
 }
+
 bool Racing() {
     return mem::IsCommitted(kGameFlowState) && kernel::R32(kGameFlowState) == kGameFlowRacing;
 }
@@ -185,7 +207,8 @@ void FeFrame() {
 // FeMenuShown: true whenever we are not in a race OR when paused, so the pad buttons hide
 // and give way to menu navigation (pills in the corner, swipe, tap anywhere)
 bool FeMenuShown() {
-    return !Racing() || IsPaused();
+    if (!Racing()) return true;
+    return IsPaused();
 }
 
 bool FeMouseDown() { return g_down.load(); }
