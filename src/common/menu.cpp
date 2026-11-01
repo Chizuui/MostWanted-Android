@@ -765,7 +765,8 @@ void DrawTitle() {
     }
 }
 
-constexpr const char* kCredit = "Port by Rangga Casper";
+constexpr const char* kCredit = "Base by Rangga Casper, Ported by chizui";
+constexpr const char* kFpsCredit = "Ported by chizui";
 
 // the hint line, then the credit on the left and Back and Defaults on the right
 void DrawFooter(float em) {
@@ -1037,7 +1038,7 @@ void DrawFpsCounter(double fps) {
     float big = ImGui::GetFontSize() * 1.5f, small = ImGui::GetFontSize();
     ImVec2 fs = ImGui::GetFont()->CalcTextSizeA(big, FLT_MAX, 0, text);
     ImVec2 ps = perf.empty() ? ImVec2(0, 0) : ImGui::GetFont()->CalcTextSizeA(small, FLT_MAX, 0, perf.c_str());
-    ImVec2 cs = ImGui::GetFont()->CalcTextSizeA(small, FLT_MAX, 0, kCredit);
+    ImVec2 cs = ImGui::GetFont()->CalcTextSizeA(small, FLT_MAX, 0, kFpsCredit);
     // the first line: the frame rate, the credit beside it
     float gap = small;
     float line_w = fs.x + gap + cs.x;
@@ -1061,7 +1062,7 @@ void DrawFpsCounter(double fps) {
     float line_x = x(line_w);
     DrawShadowed(dl, big, ImVec2(line_x, y), IM_COL32(255, 214, 90, 255), text);
     // the credit beside the frame rate, dimmer, its foot on the same line
-    DrawShadowed(dl, small, ImVec2(line_x + fs.x + gap, y + fs.y - cs.y), IM_COL32(200, 180, 150, 220), kCredit);
+    DrawShadowed(dl, small, ImVec2(line_x + fs.x + gap, y + fs.y - cs.y), IM_COL32(200, 180, 150, 220), kFpsCredit);
     if (!perf.empty()) DrawShadowed(dl, small, ImVec2(x(ps.x), y + fs.y), IM_COL32(235, 235, 235, 255), perf.c_str());
 }
 
