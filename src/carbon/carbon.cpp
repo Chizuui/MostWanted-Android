@@ -33,20 +33,17 @@ void WidenAspect() {
 }
 
 // Carbon render switches:
-// - 0x401D14: World Bloom switch (checked at 0x112AF9, calls 0x110F50 / 0x110E00)
 // - 0x3F96B3: Particles - Main View switch (checked at 0x112A63)
 // - 0x3F96BA: Car Reflections (EnvMap) switch (checked at 0x1121BB)
 // - 0x492F8C: Road Reflection active flag (checked at 0x111FF0)
-constexpr uint32_t kWorldBloomSwitch = 0x401D14;
+// The world bloom switch (0x401D14, read at 0x112AF9) is left to the game: with it written 0 the scene broke
+// (map off its track, crashes). BLOOM off is native/vulkan.cpp's skip of the glow draw
 constexpr uint32_t kParticleSwitch = 0x3F96B3;
 constexpr uint32_t kEnvMapSwitch = 0x3F96BA;
 constexpr uint32_t kRoadReflectionSwitch = 0x492F8C;
 
 void ApplyGraphicsSwitches() {
     const Options& o = Opt();
-    if (mem::IsCommitted(kWorldBloomSwitch)) {
-        kernel::G<uint8_t>(kWorldBloomSwitch) = o.bloom ? 1 : 0;
-    }
     if (mem::IsCommitted(kParticleSwitch)) {
         kernel::G<uint8_t>(kParticleSwitch) = o.particles ? 1 : 0;
     }
@@ -279,13 +276,14 @@ bool FeFinger(float& x, float& y) {
     return true;
 }
 
-// When in menu, show ENTER (A) and CLOSE (B) pills in the bottom-left corner,
-// exactly as Most Wanted does!
+// When in a menu, every pad button is a pill on the left of the screen: the screens' own prompts (Y sell, X modify,
+// L and R the tabs) are not read from Carbon's FEng yet, so all are offered and the game takes the ones it uses
 FePrompts CurrentFePrompts() {
     FePrompts p{};
     if (FeMenuShown()) {
-        p.shown[0] = true; // A - ENTER
-        p.shown[1] = true; // B - CLOSE
+        for (int i = 0; i < kFePromptCount; i++) p.shown[i] = true;
+        p.label[kFePromptLT] = "L";  // no digits in a label: an action, not the map's "ZOOM 1.5X"
+        p.label[kFePromptRT] = "R";
     }
     return p;
 }
@@ -421,4 +419,32 @@ X86_FUNC(sub_00207BD0) {
     if (full) kernel::W32(self + 0xFC, 0x3F800000u);
     __imp__sub_00207BD0(ctx, base);
     if (full) kernel::W32(self + 0xFC, 0x3F800000u);
+}
+
+// A view's projection (0x1040E0, thiscall, the matrices in ecx; the view first of 3 arguments, its type at +8, ret
+// 0x10): with the widescreen flag the camera's vertical is 9/16 of its horizontal angle, so a frame wider than 16:9 was
+// the 16:9 picture stretched across it. The x scale ([matrices + 0x40]) is made the frame's (Hor+, the vertical kept)
+// just before the view's matrix times it (0x2EFCB4, out = +0x80, a = the matrices, b = +0x40) that the frustum's planes
+// come from. Only the views the game gives the widescreen angle (types 1, 2, 4 to 7: the players', their reflections
+// and glows), as Most Wanted's
+static uint32_t g_widen_matrices = 0;  // the matrices while a wide view's projection is made, game thread
+
+X86_EXTERN_FUNC(__imp__sub_001040E0);
+X86_FUNC(sub_001040E0) {
+    const uint32_t view = kernel::R32(ctx.esp + 4);
+    const uint32_t type = view && mem::IsCommitted(view + 8) ? kernel::R32(view + 8) : 0;
+    const bool wide = mem::IsCommitted(0x45D294) && (kernel::G<uint8_t>(0x45D294) & 1);
+    g_widen_matrices = wide && (type == 1 || type == 2 || (type >= 4 && type <= 7)) ? ctx.ecx : 0;
+    __imp__sub_001040E0(ctx, base);
+    g_widen_matrices = 0;
+}
+
+X86_EXTERN_FUNC(__imp__sub_002EFCB4);
+X86_FUNC(sub_002EFCB4) {
+    const uint32_t m = g_widen_matrices;
+    if (m && kernel::R32(ctx.esp + 8) == m && kernel::R32(ctx.esp + 12) == m + 0x40) {
+        g_widen_matrices = 0;
+        kernel::G<float>(m + 0x40) *= (16.0f / 9.0f) / game::Aspect();
+    }
+    __imp__sub_002EFCB4(ctx, base);
 }
