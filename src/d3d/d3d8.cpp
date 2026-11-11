@@ -15,6 +15,9 @@
 #include "common/fe_mouse.h"
 #include "common/game_font.h"
 #include "common/options.h"
+#if __has_include("carbon/dump.h")
+#include "carbon/dump.h"
+#endif
 #include "core/diag.h"
 #include "d3d/gpu_frame.h"
 #include "gpu/backend.h"
@@ -839,7 +842,10 @@ HLE_STDCALL(D3DDevice_Swap, 1) {
     game::ApplyGraphicsSwitches();
     game::ApplyCheats();
     game::CaptureFont();
-    game::FeFrame();
+#if __has_include("carbon/dump.h")
+    game::ApplyHudLayout();
+    game::DumpPackages();
+#endif
     LogTargets(g_presents);
     if (g_trace) LOGI("trace: swap");
     g_trace = logx::kVerbose && g_presents % 600 < 4;

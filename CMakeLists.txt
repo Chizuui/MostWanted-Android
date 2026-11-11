@@ -86,7 +86,11 @@ list(FILTER RUNTIME_SOURCES EXCLUDE REGEX
      "/runtime/app/|/core/input\\.cpp$|/gpu/(d3d12|render_thread)\\.cpp$|/audio/xaudio2\\.cpp$|/xdk/(dsound|d3d8)\\.cpp$")
 # the game's sources: Direct3D 8, sound and settings, plus the per-game hooks in src/<XBE_GAME_DIR> (game: Most Wanted)
 set(XBE_GAME_DIR game CACHE STRING "the per-game hook directory under src")
+# and the HUD layout when the game folder has one (Most Wanted's stays its own, unbuilt: its FEng is not hooked)
 file(GLOB GAME_HOST_SOURCES CONFIGURE_DEPENDS ${GAME}/d3d/*.cpp ${GAME}/sound/*.cpp ${GAME}/common/*.cpp ${GAME}/${XBE_GAME_DIR}/*.cpp)
+if(EXISTS ${GAME}/${XBE_GAME_DIR}/dump.h)
+    list(APPEND GAME_HOST_SOURCES ${GAME}/${XBE_GAME_DIR}/hud_layout.cpp)
+endif()
 file(GLOB ANDROID_SOURCES CONFIGURE_DEPENDS ${NATIVE}/*.cpp)
 set(IMGUI_SOURCES ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)

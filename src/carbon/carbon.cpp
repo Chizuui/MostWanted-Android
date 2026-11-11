@@ -5,6 +5,7 @@
 #include <string>
 
 #include "common/aspect.h"
+#include "core/log.h"
 #include "cpu/x86_ops.h"
 #include "kernel/kernel.h"
 #include "kernel/memory.h"
@@ -126,6 +127,7 @@ bool TakeFont(FontImage&) { return false; }
 // State 6 is racing/driving. Any other state is menu/loading/FMV.
 constexpr uint32_t kGameFlowState = 0x46D280;
 constexpr uint32_t kGameFlowRacing = 6;
+// cFEng's instance: FEngine at its first field, the packages' list at +0xE4 (their next +8, name +0xC)
 constexpr uint32_t kCFEng = 0x46A7C8;
 
 // Returns true if name is any menu/dialog/options package (anything that is NOT racing HUD or song banner)
@@ -448,3 +450,72 @@ X86_FUNC(sub_002EFCB4) {
     }
     __imp__sub_002EFCB4(ctx, base);
 }
+
+namespace game {
+namespace {
+
+using ::game::kCFEng;  // cFEng's instance: FEngine at its first field, the packages' list at +0xE4
+
+// FEng's packages as they open: the name's hash (+0x10) and every object under it (the list at +0x4C, the next at +4,
+// a group's children at +0x64 and +0x60), so the HUD's groups can be found by hash as Most Wanted's were
+static void DumpObjects(uint32_t o, int depth, int& budget) {
+    for (; o && budget-- > 0; o = kernel::R32(o + 4)) {
+        uint32_t hash = kernel::R32(o + 0x10), type = kernel::R32(o + 0x18);
+        LOGI("feobj: %*s%08X t%u", depth * 2, "", hash, type);
+        if (type == 5 && depth < 8) DumpObjects(kernel::R32(o + 0x64), depth + 1, budget);
+    }
+}
+static void DumpOpenPackages() {
+    static uint32_t dumped[32] = {};
+    static int n = 0;
+    if (!mem::IsCommitted(kCFEng)) return;
+    uint32_t cfeng = kernel::R32(kCFEng);
+    uint32_t fe = cfeng && mem::IsCommitted(cfeng) ? kernel::R32(cfeng) : 0;
+    int count = 0;
+    for (uint32_t p = fe && mem::IsCommitted(fe + 0xE4) ? kernel::R32(fe + 0xE4) : 0; p && count < 64;
+         p = kernel::R32(p + 8), count++) {
+        if (!mem::IsCommitted(p + 0xC)) continue;
+        uint32_t name = kernel::R32(p + 0xC);
+        bool seen = false;
+        for (int i = 0; i < n; i++) seen = seen || dumped[i] == p;
+        if (seen) continue;
+        if (n < 32) dumped[n++] = p;
+        int budget = 400;
+        LOGI("fepkg: open %s", name && mem::IsCommitted(name) ? (const char*)kernel::HostPtr(name) : "?");
+        if (name && mem::IsCommitted(name)) DumpObjects(kernel::R32(p + 0x4C), 1, budget);
+    }
+}
+
+// the HUD's groups: a race's package (HUD_*) dumped in full, the front end's only for the EA Trax banner
+static void DumpRaceHud() {
+    static bool done = false;
+    if (done || !mem::IsCommitted(::game::kCFEng)) return;
+    uint32_t cfeng = kernel::R32(::game::kCFEng);
+    uint32_t fe = cfeng && mem::IsCommitted(cfeng) ? kernel::R32(cfeng) : 0;
+    int count = 0;
+    for (uint32_t p = fe && mem::IsCommitted(fe + 0xE4) ? kernel::R32(fe + 0xE4) : 0; p && count < 64;
+         p = kernel::R32(p + 8), count++) {
+        uint32_t name = mem::IsCommitted(p + 0xC) ? kernel::R32(p + 0xC) : 0;
+        if (!name || !mem::IsCommitted(name)) continue;
+        const char* s = (const char*)kernel::HostPtr(name);
+        if (std::strncmp(s, "HUD_", 4) != 0 && std::strncmp(s, "EA_T", 4) != 0) continue;
+        int budget = 2000;
+        LOGI("fepkg: race %s", s);
+        DumpObjects(kernel::R32(p + 0x4C), 1, budget);
+        done = true;
+    }
+}
+
+}  // namespace
+
+// called at each present: the open packages once, the HUD for as long as it is up
+void DumpPackages() {
+    static bool packages = false;
+    if (!packages) {
+        packages = true;
+        DumpOpenPackages();
+    }
+    DumpRaceHud();
+}
+
+}  // namespace game

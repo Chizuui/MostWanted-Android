@@ -1,11 +1,10 @@
 // The HUD's speedometer, minimap, race information and EA Trax banner moved where the touch layout editor puts them,
-// out from under the touch controls. A race's HUD is the FEng package HUD_SingleRace.fng (HUD_Drag.fng and the split
-// screen's are others), the song's banner EA_TRAX.fng; their pieces are groups found by their names' hashes
-// (FEHashUpper, 0x157E40: -1, then times 33 plus each letter in capitals, the object's at +0x10). An object's place is its data's (+0x2C) x and y at +0x1C and +0x20, FEng units from its group's
-// middle, read as it is drawn: a group moved moves what is in it. The game writes some of those places each frame
-// (Hud_Minimap scrolls TRACK_MAP) and the package's scripts others, so they are moved after FEngine::Update, the last
-// writer before the drawing (at the present, the map's roads stayed behind); and a place found other than as it was
-// left is the game's new one, moved again from there
+// out from under the touch controls. The groups are found by their names' hashes (FEHashUpper: -1, then times 33 plus
+// each letter in capitals), the packages walked from cFEng's FEngine. An object's place is its data's x and y, FEng
+// units from its group's middle, read as it is drawn: a group moved moves what is in it. The game writes some of those
+// places each frame (the map scrolls its track) and the package's scripts others, so they are moved after the FEng
+// is updated, the last writer before the drawing; and a place found other than as it was left is the game's new one,
+// moved again from there
 #include <cstring>
 #include <unordered_map>
 
@@ -18,41 +17,38 @@ namespace game {
 
 namespace {
 
-constexpr uint32_t kFEng = 0x48E94C;           // cFEng's instance, its first field the FEngine
-constexpr uint32_t kFirstPackage = 0xE0;       // FEngine's
-constexpr uint32_t kPackageNext = 0x4, kPackageName = 0xC, kPackageObjects = 0x4C;
+constexpr uint32_t kCFEng = 0x46A7C8;  // cFEng's instance, its first field the FEngine
+constexpr uint32_t kFirstPackage = 0xE4;  // FEngine's, each one's next at +8
+constexpr uint32_t kPackageNext = 0x8, kPackageName = 0xC, kPackageObjects = 0x4C;
 constexpr uint32_t kObjectNext = 0x4, kObjectHash = 0x10, kObjectType = 0x18, kObjectData = 0x2C;
 constexpr uint32_t kGroupCount = 0x60, kGroupObjects = 0x64;
 constexpr uint32_t kTypeGroup = 5;
 constexpr uint32_t kDataX = 0x1C, kDataY = 0x20;
 constexpr int kMaxPackages = 64, kMaxObjects = 1500;
 
-// the groups of each item, by their names' hashes. The speedometer's are in the bottom right cluster (group 0x5D0101F1,
-// whose other groups are the race's information at the top right): the dial, the speed, the needle, the nitrous and
-// speedbreaker gauges and the turbo's. The minimap's: its map (TRACK_MAP's four tiles), its icons (group 0x00A1A862:
-// the player's arrow, the cops, the events, placed by Hud_Minimap) and the ring round the event it points to
+// the groups of each item, by their names' hashes: the speedometer's cluster (the dial, the speed, the needle, the
+// nitrous and the speedbreaker gauges), the minimap's (its track, the icons the game places on it, the ring round the
+// event it points to, the roads and the rim), the race's information at the top right (the position, the lap and the
+// time, the racers under it) and EA Trax's banner
 struct Piece {
     uint32_t hash;
     HudItem item;
 };
 constexpr Piece kPieces[] = {
-    {0x5164D4EA, kHudSpeedometer},  // GaugeCluster
-    {0x941FFF09, kHudSpeedometer},  // SpeedometerGroup
-    {0xC5D551B7, kHudSpeedometer},  // TURBO_GROUP
-    {0x8991BD54, kHudSpeedometer},  // Speedbreaker_Meter_Group
-    {0x5DF2F5B4, kHudSpeedometer},  // Speedbreaker_Meter_Multi_Image
-    {0xEDFB6D37, kHudSpeedometer},  // the nitrous gauge's image
-    {0x87C38E97, kHudSpeedometer},
-    {0x0F365871, kHudMinimap},  // TRACK_MAP
-    {0x00A1A862, kHudMinimap},  // the map's icons
-    {0x382D2FC9, kHudMinimap},  // TRACKMAPTARGETRING
-    {0xB0F63386, kHudMinimap},  // the roads, two multi images
-    {0xC46A80A9, kHudMinimap},  // the map's rim and the heat level over it
-    {0xB1C5ED0D, kHudRaceInfo},  // RaceInformationGroup: the position, the lap or completion and the time
-    {0x5ED609A1, kHudRaceInfo},  // LeaderBoardGroup: the racers under it
-    {0x9AFCE2B8, kHudRaceInfo},
-    {0x2269D232, kHudRaceInfo},
-    {0xA1341735, kHudTrax},  // EA_TRAX.fng's banner, the song playing (in the front end too)
+    // HUD_SingleRace.fng as Carbon dumps it: the cluster at 0x5D0101F1 holds the speedometer's group and the race's
+    // information, the race's own root the minimap's groups. Names shared with Most Wanted's package keep its hashes
+    {0x941FFF09, kHudSpeedometer},  // SpeedometerGroup, in the cluster
+    {0x0F365871, kHudMinimap},      // TRACK_MAP: the four map tiles
+    {0x00A1A862, kHudMinimap},      // the map's icons: the player's arrow, the cops, the events
+    {0xC46A80A9, kHudMinimap},      // the map's rim and the heat level over it
+    {0x157C5B37, kHudMinimap},      // TRACKMAPTARGETRING's group: the ring round the event the map points to
+    {0x3345911D, kHudMinimap},      // the ring's image
+    {0xB1C5ED0D, kHudRaceInfo},     // RaceInformationGroup: the position, the lap and the time
+    {0x0F84EB22, kHudRaceInfo},     // the position's digits
+    {0x30D9802E, kHudRaceInfo},     // the lap's
+    {0x44EB106B, kHudRaceInfo},     // the time's
+    {0x5ED609A1, kHudRaceInfo},     // LeaderBoardGroup: the racers under it
+    {0x7FAC287B, kHudTrax},         // EA Trax's banner, in the race's package and in the front end's
 };
 
 struct Moved {
@@ -110,7 +106,7 @@ bool HudPackage(uint32_t p) {
 }  // namespace
 
 void ApplyHudLayout() {
-    uint32_t feng = Peek(kFEng), fe = Peek(feng);
+    uint32_t cfeng = Peek(kCFEng), fe = cfeng ? Peek(cfeng) : 0;
     std::unordered_map<uint32_t, Moved> seen;
     int n = 0;
     for (uint32_t p = fe ? Peek(fe + kFirstPackage) : 0; p && n < kMaxPackages; p = Peek(p + kPackageNext), n++) {
@@ -123,10 +119,3 @@ void ApplyHudLayout() {
 
 }  // namespace game
 
-// FEngine::Update (thiscall, the time and a flag, ret 8): HUD's code has written its places by then (Hud_Minimap
-// scrolls TRACK_MAP each frame), the drawing reads them after
-X86_EXTERN_FUNC(__imp__sub_00165B20);
-X86_FUNC(sub_00165B20) {
-    __imp__sub_00165B20(ctx, base);
-    game::ApplyHudLayout();
-}
